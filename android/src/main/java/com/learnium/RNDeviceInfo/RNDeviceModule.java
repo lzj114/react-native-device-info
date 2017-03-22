@@ -1,8 +1,11 @@
 package com.learnium.RNDeviceInfo;
 
-import android.app.KeyguardManager;
-import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.telephony.TelephonyManager;
+import android.text.TextUtils;
+import java.util.UUID;
+import android.bluetooth.BluetoothAdapter;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
@@ -13,8 +16,6 @@ import com.google.android.gms.iid.InstanceID;
 
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
-import com.facebook.react.bridge.ReactMethod;
-import com.facebook.react.bridge.Callback;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -73,12 +74,6 @@ public class RNDeviceModule extends ReactContextBaseJavaModule {
     return layout == Configuration.SCREENLAYOUT_SIZE_LARGE || layout == Configuration.SCREENLAYOUT_SIZE_XLARGE;
   }
 
-  @ReactMethod
-  public void isPinOrFingerprintSet(Callback callback) {
-    KeyguardManager keyguardManager = (KeyguardManager) this.reactContext.getSystemService(Context.KEYGUARD_SERVICE); //api 16+
-    callback.invoke(keyguardManager.isKeyguardSecure());
-  }
-
   @Override
   public @Nullable Map<String, Object> getConstants() {
     HashMap<String, Object> constants = new HashMap<String, Object>();
@@ -100,14 +95,12 @@ public class RNDeviceModule extends ReactContextBaseJavaModule {
 
     String deviceName = "Unknown";
 
-    try {
-      BluetoothAdapter myDevice = BluetoothAdapter.getDefaultAdapter();
-      if(myDevice!=null){
-        deviceName = myDevice.getName();
-      }
-    } catch(Exception e) {
-      e.printStackTrace();
-    }
+//     try {
+//       BluetoothAdapter myDevice = BluetoothAdapter.getDefaultAdapter();
+//       deviceName = myDevice.getName();
+//     } catch(Exception e) {
+//       e.printStackTrace();
+//     }
 
     constants.put("instanceId", InstanceID.getInstance(this.reactContext).getId());
     constants.put("deviceName", deviceName);
@@ -118,7 +111,7 @@ public class RNDeviceModule extends ReactContextBaseJavaModule {
     constants.put("deviceId", Build.BOARD);
     constants.put("deviceLocale", this.getCurrentLanguage());
     constants.put("deviceCountry", this.getCurrentCountry());
-    constants.put("uniqueId", Secure.getString(this.reactContext.getContentResolver(), Secure.ANDROID_ID));
+    constants.put("uniqueId", getUniqueId());//Secure.getString(this.reactContext.getContentResolver(), Secure.ANDROID_ID));
     constants.put("systemManufacturer", Build.MANUFACTURER);
     constants.put("bundleId", packageName);
     constants.put("userAgent", System.getProperty("http.agent"));
@@ -126,5 +119,27 @@ public class RNDeviceModule extends ReactContextBaseJavaModule {
     constants.put("isEmulator", this.isEmulator());
     constants.put("isTablet", this.isTablet());
     return constants;
+  }
+
+
+  public  String getUniqueId(){
+          String  uuid="";
+                try {
+                    final TelephonyManager tm = (TelephonyManager) this.reactContext
+                            .getSystemService(Context.TELEPHONY_SERVICE);
+                    uuid = "" + tm.getDeviceId();
+                }catch (SecurityException e) {
+                    uuid = "";
+                }finally {
+                    if (TextUtils.isEmpty(uuid)) {
+                        final SharedPreferences prefs = this.reactContext.getSharedPreferences( "device_id.xml", 0);
+                        uuid = prefs.getString("device_id", null);
+                         if (TextUtils.isEmpty(uuid)) {
+                             uuid = UUID.randomUUID().toString().replace("-", "");
+                         }
+                         prefs.edit().putString("device_id", uuid).apply();
+                    }
+                }
+          return uuid;
   }
 }
